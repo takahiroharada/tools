@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>縦書きMarkdownビューアー</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #f5f2eb;
+      font-family: "Yu Mincho", "游明朝", serif;
+      overflow: hidden;
+    }
+
+    /* 上部操作メニュー（最前面固定） */
+    #controls {
+      position: fixed;
+      top: 15px;
+      left: 15px;
+      z-index: 9999;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-family: sans-serif;
+      font-size: 14px;
+    }
+
+    #url-input {
+      width: 200px;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .btn {
+      background: #4a4a4a;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .btn:hover { background: #333; }
+
+    .file-label {
+      cursor: pointer;
+      background: #0066cc;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      display: inline-block;
+    }
+
+    .file-label:hover { background: #0052a3; }
+
+    /* 中央配置のスクロールコンテナ */
+    #viewer-container {
+      width: 92vw; /* 読書エリアの幅（左右の余白を小さく） */
+      height: 100vh;
+      margin: 0 auto;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    #viewer-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* 縦書き・表示エリア */
+    #viewer {
+      height: 100vh;
+      padding: 80px 0 4vh 0; /* 上は操作メニュー用に確保、下は狭く */
+      box-sizing: border-box;
+      writing-mode: vertical-rl;
+      -webkit-writing-mode: vertical-rl;
+      line-height: 1.8;
+      font-size: 1.15rem;
+    }
+
+    #viewer h1, #viewer h2 {
+      margin-top: 1.5em; /* 縦書きでは上方向の余白 */
+      border-top: 2px solid #333; /* 縦書きでは上がボーダー */
+      padding-top: 0.5em;
+    }
+    
+    /* 以前の「---」によるページ区切りを疑似的に再現する場合 */
+    /* 履歴パネル */
+    #history-panel {
+      display: none;
+      position: absolute;
+      top: 80px; /* ボタン下に十分な余白を確保 */
+      left: 15px;
+      background: rgba(255,255,255,0.95);
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      max-width: 80vw;
+      max-height: 70vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 10010; /* ボタンより前面に表示 */
+    }
+    #history-panel ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    #history-panel li a {
+      text-decoration: none;
+      color: #333;
+    }
+    #history-panel li a:hover {
+      background: #f0f0f0;
+    }
+    #viewer hr {
+      border: none;
+      margin-left: 92vw; /* コンテナの幅に合わせて次のページへ押し出す */
+    }
+  </style>
+</head>
+<body tabindex="0"> <div id="controls">
+    <button class="btn" id="history-btn">履歴</button>
+    <input type="text" id="url-input" placeholder="MarkdownのRaw URL">
+    <button class="btn" onclick="loadFromUrl()">URL読込</button>
+    <span style="color:#ccc;">|</span>
+    <label class="file-label">
+      ローカルファイルを選択
+      <input type="file" id="file-input" accept=".md,.txt" style="display: none;" onchange="loadFromFile(event)">
+    </label>
+  </div>
+
+  <div id="viewer-container">
+    <div id="viewer"></div>
+  </div>
+
+  <div id="history-panel">
+    <ul></ul>
+  </div>
+  <script>
+    // ---------- History handling ----------
+    const HISTORY_KEY = 'mdHistory';
+    const MAX_HISTORY = 20;
+
+    function saveHistory(url, name) {
+      if (!url) return;
+      const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      // Remove existing entry for this URL
+      const filtered = stored.filter(item => item.url !== url);
+      filtered.unshift({ url, name: name || url });
+      if (filtered.length > MAX_HISTORY) filtered.length = MAX_HISTORY;
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(filtered));
+    }
+
+    function hideHistory() {
+      const panel = document.getElementById('history-panel');
+      panel.style.display = 'none';
+    }
+
+    function showHistory() {
+      const panel = document.getElementById('history-panel');
+      const list = panel.querySelector('ul');
+      list.innerHTML = '';
+      const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      stored.forEach(item => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = '#';
+        a.textContent = item.name; // display name (filename or URL)
+        a.style.cursor = 'pointer';
+        a.style.display = 'block';
+        a.style.padding = '4px 8px';
+        a.onclick = (e) => {
+          e.preventDefault();
+          loadFromHistory(item.url);
+          hideHistory();
+        };
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+      panel.style.display = 'block';
+    }
+
+    function loadFromHistory(url) {
+      document.getElementById('url-input').value = url;
+      fetchAndRender(url);
+    }
+
+      // History button (moved inside DOMContentLoaded)
+      document.getElementById('history-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const panel = document.getElementById('history-panel');
+        if (panel.style.display === 'block') hideHistory();
+        else showHistory();
+      });
+
+    // Click outside to close history panel
+    window.addEventListener('click', (e) => {
+      const panel = document.getElementById('history-panel');
+      if (panel.style.display === 'block' && !e.target.closest('#history-panel') && !e.target.closest('#history-btn')) {
+        hideHistory();
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.body.focus();
+
+      const params = new URLSearchParams(window.location.search);
+      const fileUrl = params.get('url');
+      if (fileUrl) {
+        document.getElementById('url-input').value = fileUrl;
+        fetchAndRender(fileUrl);
+      }
+
+      window.addEventListener('dragover', (e) => e.preventDefault());
+      window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files.length > 0) {
+          readLocalFile(e.dataTransfer.files[0]);
+        }
+      });
+    });
+
+    // 矢印キーでページをめくる（スクロールする）処理
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement.tagName === 'INPUT') return;
+
+      const viewerContainer = document.getElementById('viewer-container');
+      const viewer = document.getElementById('viewer');
+      
+      // 1行の幅（フォントサイズ × 行間）を計算して、2行分をオーバーラップさせる
+      const fontSize = parseFloat(window.getComputedStyle(viewer).fontSize);
+      const overlapWidth = fontSize * 1.8 * 2; // line-height: 1.8 × 2行分
+      
+      // 1回のスクロール量 = コンテナの表示幅 - 2行分の幅
+      const scrollAmount = viewerContainer.clientWidth - overlapWidth;
+
+      if (e.key === 'ArrowLeft') {
+        // 【左キー】次のページ（左へスクロール）
+        viewerContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+      } else if (e.key === 'ArrowRight') {
+        // 【右キー】前のページ（右へスクロール）
+        viewerContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      }
+    });
+
+    // マウスホイールでも横スクロールできるようにする（上下スクロールを横に変換）
+    window.addEventListener('wheel', (e) => {
+      const viewerContainer = document.getElementById('viewer-container');
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        viewerContainer.scrollBy({ left: -e.deltaY, behavior: 'auto' });
+      }
+    });
+
+    // 画面の左右クリックでページをめくる処理
+    window.addEventListener('click', (e) => {
+      // コントロールパネル内のクリック、リンクのクリック、テキスト選択中のクリックは無視する
+      if (e.target.closest('#controls') || e.target.closest('a')) return;
+      if (window.getSelection().toString().length > 0) return;
+
+      const viewerContainer = document.getElementById('viewer-container');
+      const viewer = document.getElementById('viewer');
+      
+      const fontSize = parseFloat(window.getComputedStyle(viewer).fontSize);
+      const overlapWidth = fontSize * 1.8 * 2;
+      const scrollAmount = viewerContainer.clientWidth - overlapWidth;
+
+      const clickX = e.clientX;
+      const screenWidth = window.innerWidth;
+
+      // 画面の左側30%をクリックしたら次のページ（左へスクロール）
+      if (clickX < screenWidth * 0.3) {
+        viewerContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+      } 
+      // 画面の右側30%をクリックしたら前のページ（右へスクロール）
+      else if (clickX > screenWidth * 0.7) {
+        viewerContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      }
+    });
+
+    function loadFromUrl() {
+      const url = document.getElementById('url-input').value.trim();
+      if (url) {
+        saveHistory(url);
+        fetchAndRender(url);
+      }
+    }
+
+    async function fetchAndRender(url) {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('ファイルの取得に失敗しました');
+        const text = await response.text();
+        renderPages(text);
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function loadFromFile(event) {
+      const file = event.target.files[0];
+      if (file) readLocalFile(file);
+    }
+
+    function readLocalFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        // Convert to a data URL (base64) so it can be fetched later
+        const dataUrl = 'data:text/plain;base64,' + btoa(unescape(encodeURIComponent(text)));
+        saveHistory(dataUrl, file.name);
+        renderPages(text);
+      };
+      reader.readAsText(file);
+    }
+
+    function renderPages(markdownText) {
+      const viewer = document.getElementById('viewer');
+      
+      // --- 等のMarkdownテキストをそのままパース
+      viewer.innerHTML = marked.parse(markdownText);
+
+      // 右端（先頭）にスクロールをリセット
+      const viewerContainer = document.getElementById('viewer-container');
+      // vertical-rlの場合、スクロールの初期位置はブラウザにより異なるため確実な値へ
+      viewerContainer.scrollTo({ left: viewerContainer.scrollWidth, behavior: 'instant' });
+
+      document.body.focus();
+    }
+  </script>
+</body>
+</html>
