@@ -13,9 +13,48 @@
       padding: 0;
       width: 100vw;
       height: 100vh;
-      background-color: #f5f2eb;
+      /* Use CSS variables for background and text color */
+      background-color: var(--bg-color, #f5f2eb);
+      color: var(--text-color, #000);
       font-family: "Yu Mincho", "游明朝", serif;
       overflow: hidden;
+    }
+    /* Theme styles with CSS variables */
+    .theme-light {
+      --bg-color: #f5f2eb;
+      --text-color: #000;
+      --btn-bg: #4a4a4a;
+      --btn-bg-hover: #333;
+      --file-bg: #0066cc;
+      --file-bg-hover: #0052a3;
+      --select-bg: #fff;
+      --select-color: #000;
+      --controls-bg: rgba(255,255,255,0.95);
+      --panel-bg: rgba(255,255,255,0.95);
+    }
+    .theme-dark {
+      --bg-color: #1e1e1e;
+      --text-color: #cfcfcf;
+      --btn-bg: #555;
+      --btn-bg-hover: #777;
+      --file-bg: #004488;
+      --file-bg-hover: #003366;
+      --select-bg: #2b2b2b;
+      --select-color: #e0e0e0;
+      --controls-bg: rgba(30,30,30,0.9);
+      --panel-bg: rgba(30,30,30,0.9);
+    }
+    .theme-atom {
+      --bg-color: #282c34;
+      --text-color: #abb2bf;
+      --btn-bg: #3b4048;
+      --btn-bg-hover: #5c6370;
+      --file-bg: #3a3f4b;
+      --file-bg-hover: #2c313a;
+      --select-bg: #21252b;
+      --select-color: #dcdcdc;
+      --controls-bg: rgba(40,44,52,0.9);
+      --panel-bg: rgba(40,44,52,0.9);
     }
 
     /* 上部操作メニュー（最前面固定） */
@@ -24,7 +63,7 @@
       top: 15px;
       left: 15px;
       z-index: 9999;
-      background: rgba(255, 255, 255, 0.95);
+      background: var(--controls-bg) !important;
       padding: 10px 16px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -36,35 +75,44 @@
     }
 
     #url-input {
-      width: 200px;
-      padding: 6px 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
+  width: 200px;
+  padding: 6px 10px;
+  border: 1px solid var(--input-border, #ccc);
+  border-radius: 4px;
+  background: var(--input-bg, #fff);
+  color: var(--input-color, #000);
+}
 
     .btn {
-      background: #4a4a4a;
-      color: #fff;
+      background: var(--btn-bg, #4a4a4a);
+      color: var(--btn-color, #fff);
       border: none;
       padding: 6px 12px;
       border-radius: 4px;
       cursor: pointer;
       font-size: 13px;
     }
-
-    .btn:hover { background: #333; }
+    .btn:hover { background: var(--btn-bg-hover, #333); }
 
     .file-label {
       cursor: pointer;
-      background: #0066cc;
-      color: #fff;
+      background: var(--file-bg, #0066cc);
+      color: var(--file-color, #fff);
       padding: 6px 12px;
       border-radius: 4px;
       font-size: 13px;
       display: inline-block;
     }
+    .file-label:hover { background: var(--file-bg-hover, #0052a3); }
 
-    .file-label:hover { background: #0052a3; }
+    #theme-select {
+  background: var(--select-bg, #fff) !important;
+  color: var(--select-color, #000) !important;
+  border: 1px solid var(--input-border, #ccc) !important;
+  border-radius: 4px;
+  font-size: 13px;
+  padding: 6px 8px;
+}
 
     /* 中央配置のスクロールコンテナ */
     #viewer-container {
@@ -104,7 +152,7 @@
       position: absolute;
       top: 80px; /* ボタン下に十分な余白を確保 */
       left: 15px;
-      background: rgba(255,255,255,0.95);
+      background: var(--panel-bg, rgba(255,255,255,0.95));
       border: 1px solid #ccc;
       border-radius: 6px;
       max-width: 80vw;
@@ -118,21 +166,72 @@
       margin: 0;
       padding: 0;
     }
+    #url-input {
+      width: 200px;
+      padding: 6px 10px;
+      border: 1px solid var(--input-border, #ccc);
+      border-radius: 4px;
+      background: var(--input-bg, #fff);
+      color: var(--input-color, #000);
+    }
+    /* History links */
     #history-panel li a {
+      color: var(--link-color, #333);
       text-decoration: none;
-      color: #333;
     }
     #history-panel li a:hover {
-      background: #f0f0f0;
+      background: var(--link-hover-bg, #f0f0f0);
+    }
+    /* Add variables to theme definitions */
+    .theme-light {
+      --input-bg: #fff;
+      --input-color: #000;
+      --input-border: #ccc;
+      --link-color: #333;
+      --link-hover-bg: #f0f0f0;
+    }
+    .theme-dark {
+      --input-bg: #2b2b2b;
+      --input-color: #e0e0e0;
+      --input-border: #555;
+      --link-color: #cfcfcf;
+      --link-hover-bg: #444;
+    }
+    .theme-atom {
+      --input-bg: #21252b;
+      --input-color: #dcdcdc;
+      --input-border: #555;
+      --link-color: #abb2bf;
+      --link-hover-bg: #3a3f4b;
     }
     #viewer hr {
       border: none;
       margin-left: 92vw; /* コンテナの幅に合わせて次のページへ押し出す */
     }
+    /* Theme static background rules removed; using CSS variables above */
+    /* Ensure controls inherit theme colors */
+    .theme-light #controls,
+    .theme-dark #controls {
+      background: var(--controls-bg) !important;
+    }
+    .theme-dark #url-input, .theme-dark #theme-select {
+      background: var(--input-bg) !important;
+      color: var(--input-color) !important;
+      border-color: var(--input-border) !important;
+    }
+
   </style>
 </head>
 <body tabindex="0"> <div id="controls">
+    
+
+    
     <button class="btn" id="history-btn">履歴</button>
+    <select id="theme-select" style="padding:6px 8px; border:1px solid #ccc; border-radius:4px; font-size:13px;">
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+      <option value="atom">Atom</option>
+    </select>
     <input type="text" id="url-input" placeholder="MarkdownのRaw URL">
     <button class="btn" onclick="loadFromUrl()">URL読込</button>
     <span style="color:#ccc;">|</span>
@@ -141,7 +240,32 @@
       <input type="file" id="file-input" accept=".md,.txt" style="display: none;" onchange="loadFromFile(event)">
     </label>
   </div>
-
+<button class="btn" id="show-controls-btn" style="position:fixed; top:10px; right:10px; z-index:10020;">Hide Menu</button>
+<script>
+  const controls = document.getElementById('controls');
+  const toggleBtn = document.getElementById('show-controls-btn');
+  const hiddenFlag = localStorage.getItem('mdControlsHidden') === 'true';
+  if (hiddenFlag) {
+    controls.style.display = 'none';
+    toggleBtn.textContent = 'Show Menu';
+  } else {
+    controls.style.display = 'flex';
+    toggleBtn.textContent = 'Hide Menu';
+  }
+  function toggleControls() {
+    const isHidden = controls.style.display === 'none' || getComputedStyle(controls).display === 'none';
+    if (isHidden) {
+      controls.style.display = 'flex';
+      toggleBtn.textContent = 'Hide Menu';
+      localStorage.setItem('mdControlsHidden', 'false');
+    } else {
+      controls.style.display = 'none';
+      toggleBtn.textContent = 'Show Menu';
+      localStorage.setItem('mdControlsHidden', 'true');
+    }
+  }
+  toggleBtn.addEventListener('click', toggleControls);
+</script>
   <div id="viewer-container">
     <div id="viewer"></div>
   </div>
@@ -153,7 +277,12 @@
     // ---------- History handling ----------
     const HISTORY_KEY = 'mdHistory';
     const MAX_HISTORY = 20;
+    const THEME_KEY = 'mdTheme'; // theme storage key
 
+    function applyTheme(theme) {
+      document.body.classList.remove('theme-light', 'theme-dark', 'theme-atom');
+      document.body.classList.add('theme-' + theme);
+    }
     function saveHistory(url, name) {
       if (!url) return;
       const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
@@ -206,31 +335,15 @@
         else showHistory();
       });
 
-    // Click outside to close history panel
-    window.addEventListener('click', (e) => {
-      const panel = document.getElementById('history-panel');
-      if (panel.style.display === 'block' && !e.target.closest('#history-panel') && !e.target.closest('#history-btn')) {
-        hideHistory();
-      }
-    });
-
-    window.addEventListener('DOMContentLoaded', () => {
-      document.body.focus();
-
-      const params = new URLSearchParams(window.location.search);
-      const fileUrl = params.get('url');
-      if (fileUrl) {
-        document.getElementById('url-input').value = fileUrl;
-        fetchAndRender(fileUrl);
-      }
-
-      window.addEventListener('dragover', (e) => e.preventDefault());
-      window.addEventListener('drop', (e) => {
-        e.preventDefault();
-        if (e.dataTransfer.files.length > 0) {
-          readLocalFile(e.dataTransfer.files[0]);
-        }
-      });
+    // Theme initialization
+    const themeSelect = document.getElementById('theme-select');
+    const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
+    themeSelect.value = savedTheme;
+    applyTheme(savedTheme);
+    themeSelect.addEventListener('change', (e) => {
+      const theme = e.target.value;
+      localStorage.setItem(THEME_KEY, theme);
+      applyTheme(theme);
     });
 
     // 矢印キーでページをめくる（スクロールする）処理
@@ -293,7 +406,8 @@
     function loadFromUrl() {
       const url = document.getElementById('url-input').value.trim();
       if (url) {
-        saveHistory(url);
+        // Use URL as the display name
+        saveHistory(url, url);
         fetchAndRender(url);
       }
     }
