@@ -2,62 +2,56 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>縦書きMarkdownビューアー</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     * { box-sizing: border-box; }
-    
+
     body, html {
       margin: 0;
       padding: 0;
       width: 100vw;
       height: 100vh;
-      /* Use CSS variables for background and text color */
       background-color: var(--bg-color, #f5f2eb);
       color: var(--text-color, #000);
       font-family: "Yu Mincho", "游明朝", serif;
       overflow: hidden;
     }
-    /* Theme styles with CSS variables */
+
+    /* ── Theme variables ── */
     .theme-light {
-      --bg-color: #f5f2eb;
-      --text-color: #000;
-      --btn-bg: #4a4a4a;
-      --btn-bg-hover: #333;
-      --file-bg: #0066cc;
-      --file-bg-hover: #0052a3;
-      --select-bg: #fff;
-      --select-color: #000;
+      --bg-color: #f5f2eb; --text-color: #000;
+      --btn-bg: #4a4a4a; --btn-bg-hover: #333;
+      --file-bg: #0066cc; --file-bg-hover: #0052a3;
+      --select-bg: #fff; --select-color: #000;
       --controls-bg: rgba(255,255,255,0.95);
       --panel-bg: rgba(255,255,255,0.95);
+      --input-bg: #fff; --input-color: #000; --input-border: #ccc;
+      --link-color: #333; --link-hover-bg: #f0f0f0;
     }
     .theme-dark {
-      --bg-color: #1e1e1e;
-      --text-color: #cfcfcf;
-      --btn-bg: #555;
-      --btn-bg-hover: #777;
-      --file-bg: #004488;
-      --file-bg-hover: #003366;
-      --select-bg: #2b2b2b;
-      --select-color: #e0e0e0;
+      --bg-color: #1e1e1e; --text-color: #cfcfcf;
+      --btn-bg: #555; --btn-bg-hover: #777;
+      --file-bg: #004488; --file-bg-hover: #003366;
+      --select-bg: #2b2b2b; --select-color: #e0e0e0;
       --controls-bg: rgba(30,30,30,0.9);
       --panel-bg: rgba(30,30,30,0.9);
+      --input-bg: #2b2b2b; --input-color: #e0e0e0; --input-border: #555;
+      --link-color: #cfcfcf; --link-hover-bg: #444;
     }
     .theme-atom {
-      --bg-color: #282c34;
-      --text-color: #abb2bf;
-      --btn-bg: #3b4048;
-      --btn-bg-hover: #5c6370;
-      --file-bg: #3a3f4b;
-      --file-bg-hover: #2c313a;
-      --select-bg: #21252b;
-      --select-color: #dcdcdc;
+      --bg-color: #282c34; --text-color: #abb2bf;
+      --btn-bg: #3b4048; --btn-bg-hover: #5c6370;
+      --file-bg: #3a3f4b; --file-bg-hover: #2c313a;
+      --select-bg: #21252b; --select-color: #dcdcdc;
       --controls-bg: rgba(40,44,52,0.9);
       --panel-bg: rgba(40,44,52,0.9);
+      --input-bg: #21252b; --input-color: #dcdcdc; --input-border: #555;
+      --link-color: #abb2bf; --link-hover-bg: #3a3f4b;
     }
 
-    /* 上部操作メニュー（最前面固定） */
+    /* ── Controls bar ── */
     #controls {
       position: fixed;
       top: 15px;
@@ -70,20 +64,26 @@
       display: flex;
       gap: 12px;
       align-items: center;
+      flex-wrap: wrap;
       font-family: sans-serif;
       font-size: 14px;
     }
 
-    #url-input {
-  width: 200px;
-  padding: 6px 10px;
-  border: 1px solid var(--input-border, #ccc);
-  border-radius: 4px;
-  background: var(--input-bg, #fff);
-  color: var(--input-color, #000);
-}
+    /* Control row helpers */
+    .ctrl-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
 
-    .btn {
+    /* Hide padding sliders on mobile by default */
+    .hide-mobile {
+      display: none !important;
+    }
+
+    /* ── Buttons & selects ── */
+    #controls .btn,
+    .file-label {
       background: var(--btn-bg, #4a4a4a);
       color: var(--btn-color, #fff);
       border: none;
@@ -91,66 +91,77 @@
       border-radius: 4px;
       cursor: pointer;
       font-size: 13px;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .btn:hover { background: var(--btn-bg-hover, #333); }
+    #controls .btn:hover,
+    .file-label:hover { background: var(--btn-bg-hover, #333); }
 
     .file-label {
       cursor: pointer;
       background: var(--file-bg, #0066cc);
       color: var(--file-color, #fff);
-      padding: 6px 12px;
+    }
+
+    #theme-select,
+    #font-size-select,
+    #padding-bottom-select {
+      background: var(--select-bg, #fff) !important;
+      color: var(--select-color, #000) !important;
+      border: 1px solid var(--input-border, #ccc) !important;
       border-radius: 4px;
       font-size: 13px;
-      display: inline-block;
-    }
-    .file-label:hover { background: var(--file-bg-hover, #0052a3); }
-
-    #theme-select {
-  background: var(--select-bg, #fff) !important;
-  color: var(--select-color, #000) !important;
-  border: 1px solid var(--input-border, #ccc) !important;
-  border-radius: 4px;
-  font-size: 13px;
-  padding: 6px 8px;
-}
-
-    /* 中央配置のスクロールコンテナ */
-    #viewer-container {
-      width: 92vw; /* 読書エリアの幅（左右の余白を小さく） */
-      height: 100vh;
-      margin: 0 auto;
-      overflow-x: auto;
-      overflow-y: hidden;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-    #viewer-container::-webkit-scrollbar {
-      display: none;
+      padding: 6px 8px;
     }
 
-    /* 縦書き・表示エリア */
-    #viewer {
-      height: 100vh;
-      padding: 80px var(--viewer-pad-side, 0) var(--viewer-pad-bottom, 1.5rem) 0; /* top, side, bottom, left */
-      box-sizing: border-box;
-      writing-mode: vertical-rl;
-      -webkit-writing-mode: vertical-rl;
-      line-height: 1.8;
-      font-size: 1.15rem;
+    #url-input {
+      width: 200px;
+      padding: 6px 10px;
+      border: 1px solid var(--input-border, #ccc);
+      border-radius: 4px;
+      background: var(--input-bg, #fff);
+      color: var(--input-color, #000);
+      font-size: 13px;
     }
 
-    #viewer h1, #viewer h2 {
-      margin-top: 1.5em; /* 縦書きでは上方向の余白 */
-      border-top: 2px solid #333; /* 縦書きでは上がボーダー */
-      padding-top: 0.5em;
+    /* ── Hide/Show Menu button (always visible) ── */
+    #show-controls-btn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 10020;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      min-height: 36px;
+      background: rgba(0,0,0,0.4);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
-    
-    /* 以前の「---」によるページ区切りを疑似的に再現する場合 */
-    /* 履歴パネル */
+    #show-controls-btn:hover { background: rgba(0,0,0,0.6); }
+
+    @media (max-width: 600px) {
+      #show-controls-btn {
+        width: 40px;
+        height: 40px;
+        min-height: 40px;
+        padding: 0;
+        font-size: 20px;
+      }
+    }
+
+    /* ── History panel ── */
     #history-panel {
       display: none;
       position: absolute;
-      top: 80px; /* ボタン下に十分な余白を確保 */
+      top: 80px;
       left: 15px;
       background: var(--panel-bg, rgba(255,255,255,0.95));
       border: 1px solid #ccc;
@@ -159,132 +170,171 @@
       max-height: 70vh;
       overflow-y: auto;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      z-index: 10010; /* ボタンより前面に表示 */
+      z-index: 10010;
     }
-    #history-panel ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
-    #url-input {
-      width: 200px;
-      padding: 6px 10px;
-      border: 1px solid var(--input-border, #ccc);
-      border-radius: 4px;
-      background: var(--input-bg, #fff);
-      color: var(--input-color, #000);
-    }
-    /* History links */
+    #history-panel ul { list-style: none; margin: 0; padding: 0; }
     #history-panel li a {
       color: var(--link-color, #333);
       text-decoration: none;
+      display: block;
+      padding: 8px 12px;
+      min-height: 44px;
     }
-    #history-panel li a:hover {
-      background: var(--link-hover-bg, #f0f0f0);
+    #history-panel li a:hover { background: var(--link-hover-bg, #f0f0f0); }
+
+    /* ── Viewer ── */
+    #viewer-container {
+      width: 92vw;
+      height: 100vh;
+      margin: 0 auto;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     }
-    /* Add variables to theme definitions */
-    .theme-light {
-      --input-bg: #fff;
-      --input-color: #000;
-      --input-border: #ccc;
-      --link-color: #333;
-      --link-hover-bg: #f0f0f0;
+    #viewer-container::-webkit-scrollbar { display: none; }
+
+    /* viewer padding controlled via inline style by JS */
+    #viewer {
+      height: 100vh;
+      padding: var(--pad-top, 80px) var(--pad-side, 0) var(--pad-bottom, 4vh) 0;
+      box-sizing: border-box;
+      writing-mode: vertical-rl;
+      -webkit-writing-mode: vertical-rl;
+      line-height: 1.8;
+      font-size: 1.15rem;
     }
-    .theme-dark {
-      --input-bg: #2b2b2b;
-      --input-color: #e0e0e0;
-      --input-border: #555;
-      --link-color: #cfcfcf;
-      --link-hover-bg: #444;
-    }
-    .theme-atom {
-      --input-bg: #21252b;
-      --input-color: #dcdcdc;
-      --input-border: #555;
-      --link-color: #abb2bf;
-      --link-hover-bg: #3a3f4b;
+
+    #viewer h1, #viewer h2 {
+      margin-top: 1.5em;
+      border-top: 2px solid #333;
+      padding-top: 0.5em;
     }
     #viewer hr {
       border: none;
-      margin-left: 92vw; /* コンテナの幅に合わせて次のページへ押し出す */
-    }
-    /* Theme static background rules removed; using CSS variables above */
-    /* Ensure controls inherit theme colors */
-    .theme-light #controls,
-    .theme-dark #controls {
-      background: var(--controls-bg) !important;
-    }
-    .theme-dark #url-input, .theme-dark #theme-select {
-      background: var(--input-bg) !important;
-      color: var(--input-color) !important;
-      border-color: var(--input-border) !important;
+      margin-left: 92vw;
     }
 
-@media (max-width: 600px) {
-  #controls {
-    flex-direction: column;
-    top: 5px;
-    left: 5px;
-    right: 5px;
-    width: calc(100% - 10px);
-    gap: 8px;
-  }
-  #controls .btn,
-  #controls select,
-  #controls input {
-    width: 100% !important;
-    margin-bottom: 4px;
-  }
-  #url-input {
-    width: 100% !important;
-  }
-  #viewer-container {
-    width: 100vw;
-  }
-}
+    /* ── Mobile responsive (max-width: 600px) ── */
+    @media (max-width: 600px) {
+      #controls {
+        top: 5px;
+        left: 5px;
+        right: 5px;
+        width: calc(100% - 10px);
+        padding: 8px 12px;
+      }
 
+      .ctrl-row {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+      .ctrl-row > * { flex-shrink: 0; }
+
+      .file-label {
+        width: 100%;
+        text-align: center;
+      }
+
+      #show-controls-btn {
+        display: block !important;
+      }
+
+      /* All controls get adequate touch height */
+      #controls .btn,
+      #theme-select,
+      #font-size-select,
+      #padding-bottom-select,
+      #url-input {
+        min-height: 44px;
+      }
+
+      #viewer-container { width: 100vw; margin: 0; }
+    }
+
+    /* Very narrow screens */
+    @media (max-width: 420px) {
+      .ctrl-row label, .ctrl-row span { font-size: 12px; }
+    }
   </style>
 </head>
-<body tabindex="0"> <div id="controls">
-    
+<body tabindex="0">
+  <!-- ── Controls bar ── -->
+  <div id="controls">
+    <!-- Row 1: theme + history + settings -->
+    <div class="ctrl-row">
+      <select id="theme-select">
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+        <option value="atom">Atom</option>
+      </select>
+      <button class="btn" id="history-btn">履歴</button>
+    </div>
 
-    
-    <button class="btn" id="history-btn">履歴</button>
-    <select id="theme-select" style="padding:6px 8px; border:1px solid #ccc; border-radius:4px; font-size:13px;">
-      <option value="light">Light</option>
-      <option value="dark">Dark</option>
-      <option value="atom">Atom</option>
-    </select>
-    <input type="text" id="url-input" placeholder="MarkdownのRaw URL">
-    <button class="btn" onclick="loadFromUrl()">URL読込</button>
-<div style="display:flex; align-items:center; gap:4px;">
-  <label for="side-pad">Side padding:</label>
-  <input type="range" id="side-pad" min="0" max="200" step="5" value="0">
-  <span id="side-pad-val">0px</span>
-</div>
-<div style="display:flex; align-items:center; gap:4px;">
-  <label for="bottom-pad">Bottom padding:</label>
-  <input type="range" id="bottom-pad" min="0" max="200" step="5" value="24">
-  <span id="bottom-pad-val">24px</span>
-</div>
+    <!-- Row 2: URL -->
+    <div class="ctrl-row">
+      <input type="text" id="url-input" placeholder="MarkdownのRaw URL">
+      <button class="btn" onclick="loadFromUrl()">URL読込</button>
+    </div>
+
     <span style="color:#ccc;">|</span>
+
+    <!-- Row 3: padding + font settings -->
+    <div class="ctrl-row">
+      <label for="padding-bottom-select">底部:</label>
+      <select id="padding-bottom-select">
+        <option value="2vh"   >2vh</option>
+        <option value="4vh" selected>4vh</option>
+        <option value="6vh"  >6vh</option>
+        <option value="8vh"  >8vh</option>
+        <option value="10vh" >10vh</option>
+        <option value="12vh" >12vh</option>
+      </select>
+    </div>
+    <div class="ctrl-row">
+      <label for="font-size-select">文字:</label>
+      <select id="font-size-select">
+        <option value="0.8rem">小さい (0.8)</option>
+        <option value="0.9rem">小 (0.9)</option>
+        <option value="1.0rem">普通 (1.0)</option>
+        <option value="1.15rem" selected>大 (1.15)</option>
+        <option value="1.3rem">大きめ (1.3)</option>
+        <option value="1.5rem">特大 (1.5)</option>
+      </select>
+    </div>
+
+    <!-- Row 4: file picker -->
     <label class="file-label">
       ローカルファイルを選択
       <input type="file" id="file-input" accept=".md,.txt" style="display: none;" onchange="loadFromFile(event)">
     </label>
   </div>
-<button class="btn" id="show-controls-btn" style="position:fixed; top:10px; right:10px; z-index:10020;">Hide Menu</button>
+
+  <!-- ── Hide/Show Menu button (always visible) ── -->
+  <button class="btn" id="show-controls-btn">Hide Menu</button>
+
+  <!-- ── Viewer ── -->
+  <div id="viewer-container">
+    <div id="viewer"></div>
+  </div>
+
+  <!-- ── History panel ── -->
+  <div id="history-panel"><ul></ul></div>
+
 <script>
-  const controls = document.getElementById('controls');
-  const toggleBtn = document.getElementById('show-controls-btn');
+  const controls       = document.getElementById('controls');
+  const toggleBtn      = document.getElementById('show-controls-btn');
+
+  // Hide/show controls — button is always visible, toggles text
   const hiddenFlag = localStorage.getItem('mdControlsHidden') === 'true';
   if (hiddenFlag) {
     controls.style.display = 'none';
-    toggleBtn.textContent = 'Show Menu';
+    toggleBtn.textContent = '☰';
   } else {
     controls.style.display = 'flex';
     toggleBtn.textContent = 'Hide Menu';
   }
+
   function toggleControls() {
     const isHidden = controls.style.display === 'none' || getComputedStyle(controls).display === 'none';
     if (isHidden) {
@@ -293,230 +343,181 @@
       localStorage.setItem('mdControlsHidden', 'false');
     } else {
       controls.style.display = 'none';
-      toggleBtn.textContent = 'Show Menu';
+      toggleBtn.textContent = '☰';
       localStorage.setItem('mdControlsHidden', 'true');
     }
   }
   toggleBtn.addEventListener('click', toggleControls);
+
+  // ── History handling ──
+  const HISTORY_KEY = 'mdHistory';
+  const MAX_HISTORY = 20;
+  const THEME_KEY   = 'mdTheme';
+  const FONT_SIZE_KEY = 'mdFontSize';
+  const PAD_BOTTOM_KEY = 'mdPadBottom';
+
+  function applyTheme(theme) {
+    document.body.classList.remove('theme-light', 'theme-dark', 'theme-atom');
+    document.body.classList.add('theme-' + theme);
+  }
+
+  function saveHistory(url, name) {
+    if (!url) return;
+    const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    const filtered = stored.filter(item => item.url !== url);
+    filtered.unshift({ url, name: name || url });
+    if (filtered.length > MAX_HISTORY) filtered.length = MAX_HISTORY;
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(filtered));
+  }
+
+  function hideHistory() { document.getElementById('history-panel').style.display = 'none'; }
+
+  function showHistory() {
+    const panel = document.getElementById('history-panel');
+    const list  = panel.querySelector('ul');
+    list.innerHTML = '';
+    const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    stored.forEach(item => {
+      const li = document.createElement('li');
+      const a  = document.createElement('a');
+      a.href   = '#';
+      a.textContent = item.name;
+      a.style.cursor = 'pointer';
+      a.style.display = 'block';
+      a.style.padding = '4px 8px';
+      a.onclick = (e) => { e.preventDefault(); loadFromHistory(item.url); hideHistory(); };
+      li.appendChild(a);
+      list.appendChild(li);
+    });
+    panel.style.display = 'block';
+  }
+
+  function loadFromHistory(url) {
+    document.getElementById('url-input').value = url;
+    fetchAndRender(url);
+  }
+
+  document.getElementById('history-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const panel = document.getElementById('history-panel');
+    if (panel.style.display === 'block') hideHistory();
+    else showHistory();
+  });
+
+  // ── Theme ──
+  const themeSelect   = document.getElementById('theme-select');
+  const savedTheme    = localStorage.getItem(THEME_KEY) || 'light';
+  themeSelect.value   = savedTheme;
+  applyTheme(savedTheme);
+  themeSelect.addEventListener('change', (e) => {
+    localStorage.setItem(THEME_KEY, e.target.value);
+    applyTheme(e.target.value);
+  });
+
+  // ── Font size picker ──
+  const fontSizeSelect     = document.getElementById('font-size-select');
+  const savedFontSize      = localStorage.getItem(FONT_SIZE_KEY) || '1.15rem';
+  fontSizeSelect.value     = savedFontSize;
+  document.getElementById('viewer').style.fontSize = savedFontSize;
+
+  fontSizeSelect.addEventListener('change', (e) => {
+    document.getElementById('viewer').style.fontSize = e.target.value;
+    localStorage.setItem(FONT_SIZE_KEY, e.target.value);
+  });
+
+  // ── Bottom padding picker ──
+  const padBottomSelect    = document.getElementById('padding-bottom-select');
+  const savedPadBottom     = localStorage.getItem(PAD_BOTTOM_KEY) || '4vh';
+  padBottomSelect.value    = savedPadBottom;
+  document.documentElement.style.setProperty('--pad-bottom', savedPadBottom);
+
+  padBottomSelect.addEventListener('change', (e) => {
+    document.documentElement.style.setProperty('--pad-bottom', e.target.value);
+    localStorage.setItem(PAD_BOTTOM_KEY, e.target.value);
+  });
+
+  // ── Arrow key page-turning ──
+  window.addEventListener('keydown', (e) => {
+    if (document.activeElement.tagName === 'INPUT') return;
+    const viewerContainer = document.getElementById('viewer-container');
+    const viewer          = document.getElementById('viewer');
+    const fontSize        = parseFloat(window.getComputedStyle(viewer).fontSize);
+    const overlapWidth    = fontSize * 1.8 * 2;
+    const scrollAmount    = viewerContainer.clientWidth - overlapWidth;
+
+    if (e.key === 'ArrowLeft') {
+      viewerContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    } else if (e.key === 'ArrowRight') {
+      viewerContainer.scrollBy({ left:  scrollAmount, behavior: 'smooth' });
+    }
+  });
+
+  // ── Wheel → horizontal scroll ──
+  window.addEventListener('wheel', (e) => {
+    const viewerContainer = document.getElementById('viewer-container');
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      viewerContainer.scrollBy({ left: -e.deltaY, behavior: 'auto' });
+    }
+  });
+
+  // ── Click page-turning ──
+  window.addEventListener('click', (e) => {
+    if (e.target.closest('#controls') || e.target.closest('a')) return;
+    if (window.getSelection().toString().length > 0) return;
+
+    const viewerContainer = document.getElementById('viewer-container');
+    const viewer          = document.getElementById('viewer');
+    const fontSize        = parseFloat(window.getComputedStyle(viewer).fontSize);
+    const overlapWidth    = fontSize * 1.8 * 2;
+    const scrollAmount    = viewerContainer.clientWidth - overlapWidth;
+    const clickX          = e.clientX;
+    const screenWidth     = window.innerWidth;
+
+    if (clickX < screenWidth * 0.3) {
+      viewerContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    } else if (clickX > screenWidth * 0.7) {
+      viewerContainer.scrollBy({ left:  scrollAmount, behavior: 'smooth' });
+    }
+  });
+
+  // ── Load functions ──
+  function loadFromUrl() {
+    const url = document.getElementById('url-input').value.trim();
+    if (url) { saveHistory(url, url); fetchAndRender(url); }
+  }
+
+  async function fetchAndRender(url) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('ファイルの取得に失敗しました');
+      renderPages(await response.text());
+    } catch (err) { alert(err.message); }
+  }
+
+  function loadFromFile(event) {
+    const file = event.target.files[0];
+    if (file) readLocalFile(file);
+  }
+
+  function readLocalFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const dataUrl = 'data:text/plain;base64,' + btoa(unescape(encodeURIComponent(text)));
+      saveHistory(dataUrl, file.name);
+      renderPages(text);
+    };
+    reader.readAsText(file);
+  }
+
+  function renderPages(markdownText) {
+    const viewer     = document.getElementById('viewer');
+    const container  = document.getElementById('viewer-container');
+    if (!viewer || !container) return;
+    viewer.innerHTML = marked.parse(markdownText);
+    container.scrollTo({ left: container.scrollWidth, behavior: 'instant' });
+    document.body.focus();
+  }
 </script>
-  <div id="viewer-container">
-    <div id="viewer"></div>
-  </div>
-
-  <div id="history-panel">
-    <ul></ul>
-  </div>
-  <script>
-    // ---------- History handling ----------
-    const HISTORY_KEY = 'mdHistory';
-    const MAX_HISTORY = 20;
-    const THEME_KEY = 'mdTheme'; // theme storage key
-
-    function applyTheme(theme) {
-      document.body.classList.remove('theme-light', 'theme-dark', 'theme-atom');
-      document.body.classList.add('theme-' + theme);
-    }
-    function saveHistory(url, name) {
-      if (!url) return;
-      const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      // Remove existing entry for this URL
-      const filtered = stored.filter(item => item.url !== url);
-      filtered.unshift({ url, name: name || url });
-      if (filtered.length > MAX_HISTORY) filtered.length = MAX_HISTORY;
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(filtered));
-    }
-
-    function hideHistory() {
-      const panel = document.getElementById('history-panel');
-      panel.style.display = 'none';
-    }
-
-    function showHistory() {
-      const panel = document.getElementById('history-panel');
-      const list = panel.querySelector('ul');
-      list.innerHTML = '';
-      const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      stored.forEach(item => {
-        const li = document.createElement('li');
-        const a = document.createElement('a');
-        a.href = '#';
-        a.textContent = item.name; // display name (filename or URL)
-        a.style.cursor = 'pointer';
-        a.style.display = 'block';
-        a.style.padding = '4px 8px';
-        a.onclick = (e) => {
-          e.preventDefault();
-          loadFromHistory(item.url);
-          hideHistory();
-        };
-        li.appendChild(a);
-        list.appendChild(li);
-      });
-      panel.style.display = 'block';
-    }
-
-    function loadFromHistory(url) {
-      document.getElementById('url-input').value = url;
-      fetchAndRender(url);
-    }
-
-      // History button (moved inside DOMContentLoaded)
-      document.getElementById('history-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        const panel = document.getElementById('history-panel');
-        if (panel.style.display === 'block') hideHistory();
-        else showHistory();
-      });
-
-    // Theme initialization
-    const themeSelect = document.getElementById('theme-select');
-    const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
-    themeSelect.value = savedTheme;
-    applyTheme(savedTheme);
-    themeSelect.addEventListener('change', (e) => {
-      const theme = e.target.value;
-      localStorage.setItem(THEME_KEY, theme);
-      applyTheme(theme);
-    });
-    // Initialize padding controls
-    const sidePadInput = document.getElementById('side-pad');
-    const sidePadVal = document.getElementById('side-pad-val');
-    const bottomPadInput = document.getElementById('bottom-pad');
-    const bottomPadVal = document.getElementById('bottom-pad-val');
-    // Load saved values or defaults
-    const savedSide = localStorage.getItem('viewerPadSide');
-    const savedBottom = localStorage.getItem('viewerPadBottom');
-    // Apply side padding
-    const sideValue = savedSide !== null ? parseInt(savedSide) : 0;
-    document.documentElement.style.setProperty('--viewer-pad-side', sideValue + 'px');
-    sidePadInput.value = sideValue;
-    sidePadVal.textContent = sideValue + 'px';
-    // Apply bottom padding
-    const bottomValue = savedBottom !== null ? parseInt(savedBottom) : 24; // default approx 1.5rem
-    document.documentElement.style.setProperty('--viewer-pad-bottom', bottomValue + 'px');
-    bottomPadInput.value = bottomValue;
-    bottomPadVal.textContent = bottomValue + 'px';
-    // Event listeners to update on change
-    sidePadInput.addEventListener('input', e => {
-      const v = e.target.value;
-      document.documentElement.style.setProperty('--viewer-pad-side', v + 'px');
-      sidePadVal.textContent = v + 'px';
-      localStorage.setItem('viewerPadSide', v);
-    });
-    bottomPadInput.addEventListener('input', e => {
-      const v = e.target.value;
-      document.documentElement.style.setProperty('--viewer-pad-bottom', v + 'px');
-      bottomPadVal.textContent = v + 'px';
-      localStorage.setItem('viewerPadBottom', v);
-    });
-
-    // 矢印キーでページをめくる（スクロールする）処理
-    window.addEventListener('keydown', (e) => {
-      if (document.activeElement.tagName === 'INPUT') return;
-
-      const viewerContainer = document.getElementById('viewer-container');
-      const viewer = document.getElementById('viewer');
-      
-      // 1行の幅（フォントサイズ × 行間）を計算して、2行分をオーバーラップさせる
-      const fontSize = parseFloat(window.getComputedStyle(viewer).fontSize);
-      const overlapWidth = fontSize * 1.8 * 2; // line-height: 1.8 × 2行分
-      
-      // 1回のスクロール量 = コンテナの表示幅 - 2行分の幅
-      const scrollAmount = viewerContainer.clientWidth - overlapWidth;
-
-      if (e.key === 'ArrowLeft') {
-        // 【左キー】次のページ（左へスクロール）
-        viewerContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-      } else if (e.key === 'ArrowRight') {
-        // 【右キー】前のページ（右へスクロール）
-        viewerContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-      }
-    });
-
-    // マウスホイールでも横スクロールできるようにする（上下スクロールを横に変換）
-    window.addEventListener('wheel', (e) => {
-      const viewerContainer = document.getElementById('viewer-container');
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        viewerContainer.scrollBy({ left: -e.deltaY, behavior: 'auto' });
-      }
-    });
-
-    // 画面の左右クリックでページをめくる処理
-    window.addEventListener('click', (e) => {
-      // コントロールパネル内のクリック、リンクのクリック、テキスト選択中のクリックは無視する
-      if (e.target.closest('#controls') || e.target.closest('a')) return;
-      if (window.getSelection().toString().length > 0) return;
-
-      const viewerContainer = document.getElementById('viewer-container');
-      const viewer = document.getElementById('viewer');
-      
-      const fontSize = parseFloat(window.getComputedStyle(viewer).fontSize);
-      const overlapWidth = fontSize * 1.8 * 2;
-      const scrollAmount = viewerContainer.clientWidth - overlapWidth;
-
-      const clickX = e.clientX;
-      const screenWidth = window.innerWidth;
-
-      // 画面の左側30%をクリックしたら次のページ（左へスクロール）
-      if (clickX < screenWidth * 0.3) {
-        viewerContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-      } 
-      // 画面の右側30%をクリックしたら前のページ（右へスクロール）
-      else if (clickX > screenWidth * 0.7) {
-        viewerContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-      }
-    });
-
-    function loadFromUrl() {
-      const url = document.getElementById('url-input').value.trim();
-      if (url) {
-        // Use URL as the display name
-        saveHistory(url, url);
-        fetchAndRender(url);
-      }
-    }
-
-    async function fetchAndRender(url) {
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('ファイルの取得に失敗しました');
-        const text = await response.text();
-        renderPages(text);
-      } catch (err) {
-        alert(err.message);
-      }
-    }
-
-    function loadFromFile(event) {
-      const file = event.target.files[0];
-      if (file) readLocalFile(file);
-    }
-
-    function readLocalFile(file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target.result;
-        // Convert to a data URL (base64) so it can be fetched later
-        const dataUrl = 'data:text/plain;base64,' + btoa(unescape(encodeURIComponent(text)));
-        saveHistory(dataUrl, file.name);
-        renderPages(text);
-      };
-      reader.readAsText(file);
-    }
-
-    function renderPages(markdownText) {
-      const viewer = document.getElementById('viewer');
-      
-      // --- 等のMarkdownテキストをそのままパース
-      viewer.innerHTML = marked.parse(markdownText);
-
-      // 右端（先頭）にスクロールをリセット
-      const viewerContainer = document.getElementById('viewer-container');
-      // vertical-rlの場合、スクロールの初期位置はブラウザにより異なるため確実な値へ
-      viewerContainer.scrollTo({ left: viewerContainer.scrollWidth, behavior: 'instant' });
-
-      document.body.focus();
-    }
-  </script>
 </body>
 </html>
