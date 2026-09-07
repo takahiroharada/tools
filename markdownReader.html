@@ -131,7 +131,7 @@
     /* 縦書き・表示エリア */
     #viewer {
       height: 100vh;
-      padding: 80px 0 4vh 0; /* 上は操作メニュー用に確保、下は狭く */
+      padding: 80px 0 60px 0; /* top, right, bottom, left */
       box-sizing: border-box;
       writing-mode: vertical-rl;
       -webkit-writing-mode: vertical-rl;
@@ -219,6 +219,29 @@
       color: var(--input-color) !important;
       border-color: var(--input-border) !important;
     }
+
+@media (max-width: 600px) {
+  #controls {
+    flex-direction: column;
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    width: calc(100% - 10px);
+    gap: 8px;
+  }
+  #controls .btn,
+  #controls select,
+  #controls input {
+    width: 100% !important;
+    margin-bottom: 4px;
+  }
+  #url-input {
+    width: 100% !important;
+  }
+  #viewer-container {
+    width: 100vw;
+  }
+}
 
   </style>
 </head>
