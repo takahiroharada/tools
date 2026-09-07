@@ -131,7 +131,7 @@
     /* 縦書き・表示エリア */
     #viewer {
       height: 100vh;
-      padding: 80px 0 60px 0; /* top, right, bottom, left */
+      padding: 80px var(--viewer-pad-side, 0) var(--viewer-pad-bottom, 1.5rem) 0; /* top, side, bottom, left */
       box-sizing: border-box;
       writing-mode: vertical-rl;
       -webkit-writing-mode: vertical-rl;
@@ -257,6 +257,16 @@
     </select>
     <input type="text" id="url-input" placeholder="MarkdownのRaw URL">
     <button class="btn" onclick="loadFromUrl()">URL読込</button>
+<div style="display:flex; align-items:center; gap:4px;">
+  <label for="side-pad">Side padding:</label>
+  <input type="range" id="side-pad" min="0" max="200" step="5" value="0">
+  <span id="side-pad-val">0px</span>
+</div>
+<div style="display:flex; align-items:center; gap:4px;">
+  <label for="bottom-pad">Bottom padding:</label>
+  <input type="range" id="bottom-pad" min="0" max="200" step="5" value="24">
+  <span id="bottom-pad-val">24px</span>
+</div>
     <span style="color:#ccc;">|</span>
     <label class="file-label">
       ローカルファイルを選択
@@ -367,6 +377,37 @@
       const theme = e.target.value;
       localStorage.setItem(THEME_KEY, theme);
       applyTheme(theme);
+    });
+    // Initialize padding controls
+    const sidePadInput = document.getElementById('side-pad');
+    const sidePadVal = document.getElementById('side-pad-val');
+    const bottomPadInput = document.getElementById('bottom-pad');
+    const bottomPadVal = document.getElementById('bottom-pad-val');
+    // Load saved values or defaults
+    const savedSide = localStorage.getItem('viewerPadSide');
+    const savedBottom = localStorage.getItem('viewerPadBottom');
+    // Apply side padding
+    const sideValue = savedSide !== null ? parseInt(savedSide) : 0;
+    document.documentElement.style.setProperty('--viewer-pad-side', sideValue + 'px');
+    sidePadInput.value = sideValue;
+    sidePadVal.textContent = sideValue + 'px';
+    // Apply bottom padding
+    const bottomValue = savedBottom !== null ? parseInt(savedBottom) : 24; // default approx 1.5rem
+    document.documentElement.style.setProperty('--viewer-pad-bottom', bottomValue + 'px');
+    bottomPadInput.value = bottomValue;
+    bottomPadVal.textContent = bottomValue + 'px';
+    // Event listeners to update on change
+    sidePadInput.addEventListener('input', e => {
+      const v = e.target.value;
+      document.documentElement.style.setProperty('--viewer-pad-side', v + 'px');
+      sidePadVal.textContent = v + 'px';
+      localStorage.setItem('viewerPadSide', v);
+    });
+    bottomPadInput.addEventListener('input', e => {
+      const v = e.target.value;
+      document.documentElement.style.setProperty('--viewer-pad-bottom', v + 'px');
+      bottomPadVal.textContent = v + 'px';
+      localStorage.setItem('viewerPadBottom', v);
     });
 
     // 矢印キーでページをめくる（スクロールする）処理
