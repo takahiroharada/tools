@@ -203,10 +203,10 @@
     #show-controls-btn:active, #bookmark-btn-floating:active { transform: scale(0.96); }
 
     @media (max-width: 600px) {
-      #bookmark-btn-floating, #show-controls-btn {
-        width: 44px; height: 44px;
+      #bookmark-btn-floating {
+        width: 52px; height: 52px;
         padding: 0;
-        font-size: 20px;
+        font-size: 26px;
         border-radius: 50%;
         display: flex; justify-content: center; align-items: center;
       }
@@ -476,9 +476,42 @@
         padding: 10px 16px;
       }
       #url-input { width: 100%; flex-grow: 1; padding: 10px 16px; }
-      /* Bookmark panel list item buttons */
-      .hp-btn { width: 48px; height: 52px; font-size: 20px; }
       #history-panel, #bookmark-panel { min-width: 280px; }
+
+      /* ── Mobile-friendly Bookmark Panel sizing ── */
+      .bp-item { min-height: 54px; }
+      
+      .bp-emoji {
+        font-size: 30px;
+        line-height: unset;
+        width: 52px;
+        padding-left: 16px;
+      }
+      
+      .bp-pct {
+        font-size: 18px;
+        min-width: 40px;
+      }
+
+      /* Icon picker buttons */
+      .bp-emoji-picker {
+        gap: 8px;
+        padding: 8px 16px;
+      }
+      .bp-emoji-picker .ep-btn {
+        width: 52px;
+        height: 52px;
+        font-size: 26px;
+        border-radius: 12px;
+      }
+
+      /* Header button */
+      .bp-add-btn {
+        padding: 8px 14px;
+        font-size: 15px;
+        min-height: 36px;
+      }
+
       #viewer-container { width: 100vw; margin: 0; }
     }
     @media (max-width: 400px) {
