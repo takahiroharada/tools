@@ -612,25 +612,18 @@
   const controls       = document.getElementById('controls');
   const toggleBtn      = document.getElementById('show-controls-btn');
 
-  const hiddenFlag = localStorage.getItem('mdControlsHidden') === 'true';
-  if (hiddenFlag) {
-    controls.style.display = 'none';
-    toggleBtn.textContent = '☰';
-  } else {
-    controls.style.display = 'flex';
-    toggleBtn.textContent = 'Hide Menu';
-  }
+  // Always start with controls visible
+  controls.style.display = 'flex';
+  toggleBtn.textContent = 'Hide Menu';
 
   function toggleControls() {
     const isHidden = controls.style.display === 'none' || getComputedStyle(controls).display === 'none';
     if (isHidden) {
       controls.style.display = 'flex';
       toggleBtn.textContent = 'Hide Menu';
-      localStorage.setItem('mdControlsHidden', 'false');
     } else {
       controls.style.display = 'none';
       toggleBtn.textContent = '☰';
-      localStorage.setItem('mdControlsHidden', 'true');
     }
   }
   toggleBtn.addEventListener('click', toggleControls);
