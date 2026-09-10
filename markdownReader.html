@@ -203,10 +203,10 @@
     #show-controls-btn:active, #bookmark-btn-floating:active { transform: scale(0.96); }
 
     @media (max-width: 600px) {
-      #bookmark-btn-floating, #show-controls-btn {
-        width: 44px; height: 44px;
+      #bookmark-btn-floating {
+        width: 52px; height: 52px;
         padding: 0;
-        font-size: 20px;
+        font-size: 26px;
         border-radius: 50%;
         display: flex; justify-content: center; align-items: center;
       }
@@ -461,18 +461,68 @@
     #viewer hr { border: none; margin-left: 92vw; }
 
     @media (max-width: 600px) {
-      #controls { top: 8px; left: 8px; right: 8px; width: calc(100% - 16px); padding: 8px 12px; border-radius: 14px; }
-      .ctrl-row { width: 100%; flex-wrap: wrap; }
-      .ctrl-row > * { flex-shrink: 0; }
-      .file-label { width: 100%; text-align: center; }
+      #controls { top: 8px; left: 8px; right: 8px; width: calc(100% - 16px); padding: 12px 16px; border-radius: 14px; font-size: 16px; gap: 10px; }
+      .ctrl-row { width: 100%; flex-wrap: wrap; margin-bottom: 8px; }
+      .ctrl-row:last-of-type { margin-bottom: 0; }
+      .ctrl-row > * { flex-shrink: 0; min-width: 0; }
+      /* Ensure labels are readable */
+      .ctrl-row label { font-size: 16px; color: var(--btn-text); }
+      .file-label { width: 100%; text-align: center; padding: 12px 18px; min-height: 48px; font-size: 16px; }
       .ctrl-divider { display: none; }
-      #controls .btn, #theme-select, #font-size-select, #padding-bottom-select, #url-input { min-height: 44px; font-size: 15px; }
+      /* Scale up interactive elements for better touch targets & readability */
+      #controls .btn, #theme-select, #font-size-select, #padding-bottom-select, #url-input {
+        min-height: 48px;
+        font-size: 16px;
+        padding: 10px 16px;
+      }
+      #url-input { width: 100%; flex-grow: 1; padding: 10px 16px; }
+      #history-panel, #bookmark-panel { min-width: 280px; }
+
+      /* ── Mobile-friendly Bookmark Panel sizing ── */
+      .bp-item { min-height: 54px; }
+      
+      .bp-emoji {
+        font-size: 30px;
+        line-height: unset;
+        width: 52px;
+        padding-left: 16px;
+      }
+      
+      .bp-pct {
+        font-size: 18px;
+        min-width: 40px;
+      }
+
+      /* Icon picker buttons */
+      .bp-emoji-picker {
+        gap: 8px;
+        padding: 8px 16px;
+      }
+      .bp-emoji-picker .ep-btn {
+        width: 52px;
+        height: 52px;
+        font-size: 26px;
+        border-radius: 12px;
+      }
+
+      /* Header button */
+      .bp-add-btn {
+        padding: 8px 14px;
+        font-size: 15px;
+        min-height: 36px;
+      }
+
       #viewer-container { width: 100vw; margin: 0; }
-      .hp-btn { width: 44px; height: 48px; font-size: 18px; }
     }
-    @media (max-width: 420px) {
-      .ctrl-row label, .ctrl-row span { font-size: 13px; }
-      #controls { gap: 6px; }
+    @media (max-width: 400px) {
+      #controls { font-size: 15px; padding: 10px 12px; gap: 8px; }
+      .ctrl-row label, .ctrl-row span { font-size: 15px; }
+      #controls .btn, #theme-select, #font-size-select, #padding-bottom-select, #url-input {
+        min-height: 46px;
+        font-size: 15px;
+        padding: 8px 12px;
+      }
+      .file-label { font-size: 15px; padding: 10px 14px; }
     }
   </style>
 </head>
@@ -562,25 +612,18 @@
   const controls       = document.getElementById('controls');
   const toggleBtn      = document.getElementById('show-controls-btn');
 
-  const hiddenFlag = localStorage.getItem('mdControlsHidden') === 'true';
-  if (hiddenFlag) {
-    controls.style.display = 'none';
-    toggleBtn.textContent = '☰';
-  } else {
-    controls.style.display = 'flex';
-    toggleBtn.textContent = 'Hide Menu';
-  }
+  // Always start with controls visible
+  controls.style.display = 'flex';
+  toggleBtn.textContent = 'Hide Menu';
 
   function toggleControls() {
     const isHidden = controls.style.display === 'none' || getComputedStyle(controls).display === 'none';
     if (isHidden) {
       controls.style.display = 'flex';
       toggleBtn.textContent = 'Hide Menu';
-      localStorage.setItem('mdControlsHidden', 'false');
     } else {
       controls.style.display = 'none';
       toggleBtn.textContent = '☰';
-      localStorage.setItem('mdControlsHidden', 'true');
     }
   }
   toggleBtn.addEventListener('click', toggleControls);
