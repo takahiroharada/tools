@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPUBコンバーター(Text to EPUB Converter)</title>
+<style>
+  /* Same styles as index.html */
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #f5f5f5;
+    color: #333;
+  }
+  h1 { text-align: center; color: #2c3e50; }
+  .card {
+    background: white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+  label { display: block; font-weight: 600; margin-top: 16px; margin-bottom: 6px; color: #444; }
+  label:first-child { margin-top: 0; }
+  input, textarea, select {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid #ccc; border-radius: 8px;
+    font-size: 1rem; font-family: inherit;
+  }
+  select {
+    cursor: pointer;
+    background: #fff;
+  }
+  input:focus, textarea:focus {
+    outline: none; border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52,152,219,0.15);
+  }
+  textarea {
+    min-height: 300px; resize: vertical;
+    font-family: 'Courier New', monospace; line-height: 1.5;
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 150px; }
+  button {
+    display: block; width: 100%; padding: 14px;
+    font-size: 1.1rem; font-weight: 700;
+    border: none; border-radius: 8px;
+    cursor: pointer; transition: background 0.2s; margin-top: 20px;
+  }
+  #convertBtn { background: #27ae60; color: white; }
+  #convertBtn:hover { background: #219a52; }
+  #convertBtn:disabled { background: #95a5a6; cursor: not-allowed; }
+  #status { text-align: center; margin-top: 12px; font-size: 0.9rem; color: #666; min-height: 1.4em; }
+  .help { font-size: 0.85rem; color: #666; margin-top: 4px; }
+  .chapters-preview { margin-top: 12px; font-size: 0.85rem; }
+  .chapters-preview h3 { margin: 0 0 6px 0; font-size: 0.9rem; color: #555; }
+  .chapters-preview ol { margin: 0; padding-left: 20px; color: #666; max-height: 150px; overflow-y: auto; }
+  #resetBtn { background: #ecf0f1; color: #333; margin-top: 8px; }
+  #resetBtn:hover { background: #d5dbdb; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+  .checkbox-row input[type="checkbox"] { width: auto; margin: 0; }
+  .checkbox-row label { margin: 0; }
+</style>
+</head>
+<body>
+
+<h1>📖 Text to EPUB Converter</h1>
+<p style="text-align:center;color:#666;margin-top:-10px">Fully offline — no data leaves your computer</p>
+
+<div class="card">
+  <label for="title">Book Title</label>
+  <input type="text" id="title" value="My Book" placeholder="Enter book title">
+
+  <div class="row">
+    <div>
+      <label for="author">Author</label>
+      <input type="text" id="author" value="Unknown" placeholder="Author name">
+    </div>
+    <div>
+      <label for="lang">Language</label>
+      <input type="text" id="lang" value="ja" placeholder="e.g. en, ja, fr">
+    </div>
+    <div>
+      <label for="writingMode">Writing Direction</label>
+      <select id="writingMode">
+        <option value="vertical-rl">縦書き (Vertical)</option>
+        <option value="horizontal-tb">横書き (Horizontal)</option>
+      </select>
+    </div>
+
+  <label for="textInput">Text Content</label>
+  <textarea id="textInput" placeholder="Paste your text here...
+
+Chapters can be split on headings (lines starting with # or ## etc.)
+or a blank line will create paragraph breaks.
+
+Example:
+# Chapter 1
+This is the first paragraph.
+
+This is the second paragraph.
+
+# Chapter 2
+Content for the second chapter.
+
+Enable 'raw HTML' mode to use <ruby>漢字<rt>かんじ</rt></ruby> and other inline tags."># The Adventure Begins
+
+Once upon a time, in a digital world far away, there lived a curious programmer.
+
+They wanted to create an EPUB converter that worked entirely in the browser.
+
+# The Challenge
+
+Building an EPUB file is not as hard as it seems.
+
+An EPUB is just a ZIP file with a specific internal structure.
+
+# The Solution
+
+Using JavaScript, we can generate all the required files:
+
+- mimetype
+- META-INF/container.xml
+- content.opf
+- toc.ncx
+- Chapter XHTML files
+
+And package them together using a pure JavaScript ZIP library.
+
+# The End
+
+And so, the programmer succeeded in creating a fully client-side EPUB converter.
+
+The end. Or is it just the beginning?</textarea>
+
+  <div class="checkbox-row">
+    <input type="checkbox" id="chapterSplit" checked>
+    <label for="chapterSplit">Split chapters on headings (lines starting with #, ##, ###)</label>
+  </div>
+  <div class="checkbox-row">
+    <input type="checkbox" id="rawHtml" checked>
+    <label for="rawHtml">Treat text as raw HTML — preserve tags like <code>&lt;ruby&gt;</code>, <code>&lt;b&gt;</code>, etc.</label>
+  </div>
+
+  <div class="chapters-preview" id="chaptersPreview" style="display:none;">
+    <h3>📑 Detected chapters:</h3>
+    <ol id="chapterList"></ol>
+  </div>
+
+  <button id="convertBtn">📥 Convert to EPUB</button>
+  <div id="status"></div>
+  <button id="resetBtn">Reset</button>
+</div>
+
+<script>
+/* ================================================================
+   MiniZIP — A minimal ZIP implementation for EPUB generation.
+   Generates valid ZIP files without any external library.
+   ================================================================ */
+const MiniZip = (() => {
+  'use strict';
+
+  /* CRC-32 table */
+  let crcTable = null;
+  function makeCrcTable() {
+    crcTable = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) {
+        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      crcTable[n] = c;
+    }
+  }
+
+  function crc32(data) {
+    if (!crcTable) makeCrcTable();
+    let crc = 0xFFFFFFFF;
+    const u8 = typeof data === 'string'
+      ? new TextEncoder().encode(data)
+      : new Uint8Array(data);
+    for (let i = 0; i < u8.length; i++) {
+      crc = crcTable[(crc ^ u8[i]) & 0xFF] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function put32(view, off, val) {
+    view.setUint32(off, val, true);
+  }
+
+  function put16(view, off, val) {
+    view.setUint16(off, val, true);
+  }
+
+  /**
+   * Create a ZIP blob from a list of entries.
+   * entries: Array of { name: string, data: Uint8Array|string, store?: boolean }
+   * If store is true, the entry is stored (not deflated).
+   * For simple EPUBs, only "store" is needed for the mimetype file.
+   *
+   * For simplicity, this implementation stores all data (no compression).
+   * The resulting EPUB is valid and works on all readers.
+   */
+  function createZip(entries) {
+    // Sort: "mimetype" must be first for EPUB
+    const sorted = [...entries].sort((a, b) => {
+      if (a.name === 'mimetype' && b.name !== 'mimetype') return -1;
+      if (b.name === 'mimetype' && a.name !== 'mimetype') return 1;
+      return 0;
+    });
+
+    const localHeaders = [];
+    const centralHeaders = [];
+    const fileData = [];
+
+    let offset = 0;
+
+    for (const entry of sorted) {
+      const nameBytes = new TextEncoder().encode(entry.name);
+      const data = typeof entry.data === 'string'
+        ? new TextEncoder().encode(entry.data)
+        : entry.data;
+      const crc = crc32(data);
+      const uncompSize = data.byteLength;
+      const compSize = uncompSize; // stored (no compression)
+
+      // Local file header
+      const localSize = 30 + nameBytes.byteLength;
+      const localBuf = new ArrayBuffer(localSize);
+      const lv = new DataView(localBuf);
+      put32(lv, 0, 0x04034b50);       // local file header signature
+      put16(lv, 4, 20);                // version needed (2.0)
+      put16(lv, 6, 0);                 // flags
+      put16(lv, 8, 0);                 // compression: stored
+      put16(lv, 10, 0);                // mod time
+      put16(lv, 12, 0);                // mod date
+      put32(lv, 14, crc);
+      put32(lv, 18, compSize);
+      put32(lv, 22, uncompSize);
+      put16(lv, 26, nameBytes.byteLength);
+      put16(lv, 28, 0);                // extra field length
+      // name
+      const localArr = new Uint8Array(localBuf);
+      localArr.set(nameBytes, 30);
+
+      localHeaders.push(localArr);
+      fileData.push(data);
+
+      // Central directory header
+      const centralSize = 46 + nameBytes.byteLength;
+      const centralBuf = new ArrayBuffer(centralSize);
+      const cv = new DataView(centralBuf);
+      put32(cv, 0, 0x02014b50);        // central directory header signature
+      put16(cv, 4, 20);                // version made by
+      put16(cv, 6, 20);                // version needed
+      put16(cv, 8, 0);                 // flags
+      put16(cv, 10, 0);                // compression
+      put16(cv, 12, 0);                // mod time
+      put16(cv, 14, 0);                // mod date
+      put32(cv, 16, crc);
+      put32(cv, 20, compSize);
+      put32(cv, 24, uncompSize);
+      put16(cv, 28, nameBytes.byteLength);
+      put16(cv, 30, 0);                // extra field length
+      put16(cv, 32, 0);                // file comment length
+      put16(cv, 34, 0);                // disk number start
+      put16(cv, 36, 0);                // internal file attributes
+      put32(cv, 38, 0);                // external file attributes
+      put32(cv, 42, offset);           // relative offset of local header
+      const centralArr = new Uint8Array(centralBuf);
+      centralArr.set(nameBytes, 46);
+
+      centralHeaders.push(centralArr);
+      offset += localSize + compSize;
+    }
+
+    // End of central directory
+    const centralStart = offset;
+    const centralSize = centralHeaders.reduce((s, h) => s + h.byteLength, 0);
+    const eocdSize = 22;
+    const totalSize = centralStart + centralSize + eocdSize;
+
+    const buf = new ArrayBuffer(totalSize);
+    const result = new Uint8Array(buf);
+    let pos = 0;
+
+    // Write local file headers + file data
+    for (let i = 0; i < localHeaders.length; i++) {
+      result.set(localHeaders[i], pos);
+      pos += localHeaders[i].byteLength;
+      result.set(fileData[i], pos);
+      pos += fileData[i].byteLength;
+    }
+
+    // Write central directory
+    const centralOff = pos;
+    for (const ch of centralHeaders) {
+      result.set(ch, pos);
+      pos += ch.byteLength;
+    }
+
+    // EOCD
+    const ev = new DataView(buf, pos);
+    put32(ev, 0, 0x06054b50);
+    put16(ev, 4, 0);                   // disk number
+    put16(ev, 6, 0);                   // disk with central dir
+    put16(ev, 8, centralHeaders.length);
+    put16(ev, 10, centralHeaders.length);
+    put32(ev, 12, centralSize);
+    put32(ev, 16, centralOff);
+    put16(ev, 20, 0);                  // comment length
+
+    return new Blob([buf], { type: 'application/epub+zip' });
+  }
+
+  return { createZip, crc32 };
+})();
+
+/* ================================================================
+   Main Application
+   ================================================================ */
+(function() {
+  const titleInput       = document.getElementById('title');
+  const authorInput      = document.getElementById('author');
+  const langInput        = document.getElementById('lang');
+  const textInput        = document.getElementById('textInput');
+  const chapterSplitChk  = document.getElementById('chapterSplit');
+  const rawHtmlChk       = document.getElementById('rawHtml');
+  const writingModeSel   = document.getElementById('writingMode');
+  const convertBtn       = document.getElementById('convertBtn');
+  const statusEl         = document.getElementById('status');
+  const chaptersPreview  = document.getElementById('chaptersPreview');
+  const chapterListEl    = document.getElementById('chapterList');
+  const resetBtn         = document.getElementById('resetBtn');
+
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.style.color = isError ? '#e74c3c' : '#666';
+  }
+
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  }
+
+  function escapeXml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /** Strip HTML tags for plain-text extraction (chapter titles, etc.) */
+  function stripTags(s) {
+    return s.replace(/<[^>]*>/g, '');
+  }
+
+  function splitIntoChapters(text, splitOnHeadings) {
+    const lines = text.split('\n');
+    const chapters = [];
+    let currentLines = [];
+
+    function flush() {
+      const content = currentLines.join('\n').trim();
+      if (content) chapters.push(content);
+      currentLines = [];
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (splitOnHeadings && /^#{1,6}\s/.test(line)) { flush(); currentLines.push(line); }
+      else { currentLines.push(line); }
+    }
+    flush();
+    if (chapters.length === 0) chapters.push('');
+    return chapters;
+  }
+
+  function parseChapterTitle(content) {
+    const firstLine = content.split('\n')[0];
+    const m = firstLine && firstLine.match(/^#{1,6}\s+(.+)/);
+    if (m) return stripTags(m[1].trim());
+    const lines = content.split('\n');
+    for (const l of lines) {
+      const t = l.trim();
+      if (t) {
+        const plain = stripTags(t);
+        return plain.length > 60 ? plain.substring(0, 60) + '...' : plain;
+      }
+    }
+    return 'Untitled';
+  }
+
+  /**
+   * Convert a block of plain text into XHTML paragraphs.
+   * If rawHtml is true, HTML tags like <ruby>, <rt>, <b>, <i> are
+   * passed through untouched. Otherwise everything is escaped.
+   */
+  function textToHtmlParagraphs(text, rawHtml) {
+    // Decide which text-escape function to use
+    const esc = rawHtml
+      ? function(t) {
+          // Only escape ampersands that are NOT already part of a valid HTML entity
+          return t.replace(/&(?!(?:amp|lt|gt|quot|apos|#[0-9]+|#x[0-9a-fA-F]+);)/g, '&amp;');
+        }
+      : escapeHtml;
+
+    const blocks = text.split(/\n\s*\n/);
+    const parts = [];
+    for (const block of blocks) {
+      const trimmed = block.trim();
+      if (!trimmed) continue;
+      const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)/m);
+      if (headingMatch) {
+        const level = headingMatch[1].length;
+        const headingText = headingMatch[2].trim();
+        const rest = trimmed.replace(/^#{1,6}\s+.+(\n|$)/, '').trim();
+        parts.push(`<h${level}>${esc(headingText)}</h${level}>`);
+        if (rest) {
+          for (const p of rest.split(/\n+/)) {
+            const pt = p.trim();
+            if (pt) parts.push(`<p>${esc(pt)}</p>`);
+          }
+        }
+      } else {
+        const lines = trimmed.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.length === 1) {
+          parts.push(`<p>${esc(lines[0])}</p>`);
+        } else {
+          parts.push(`<p>${lines.map(l => esc(l)).join('<br/>\n')}</p>`);
+        }
+      }
+    }
+    return parts.join('\n');
+  }
+
+  function buildEpub(title, author, lang, chapters, rawHtml, writingMode) {
+    const bookId = uuid();
+    const chapterFiles = [];
+    const entries = [];
+
+    // 1. mimetype — must be first
+    entries.push({ name: 'mimetype', data: 'application/epub+zip' });
+
+    // 2. XHTML chapters
+    chapters.forEach((content, idx) => {
+      const fileName = `OEBPS/chapter-${idx + 1}.xhtml`;
+      chapterFiles.push(fileName);
+      const titleFromContent = parseChapterTitle(content);
+      const bodyHtml = textToHtmlParagraphs(content, rawHtml);
+
+      const xhtml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${escapeXml(lang)}" lang="${escapeXml(lang)}">
+<head>
+  <meta charset="UTF-8"/>
+  <title>${escapeXml(titleFromContent)}</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+  <section epub:type="chapter" class="chapter">
+    ${bodyHtml}
+  </section>
+</body>
+</html>`;
+      entries.push({ name: fileName, data: xhtml });
+    });
+
+    // 3. CSS
+    const isVertical = writingMode === 'vertical-rl';
+    const css = `body {
+  font-family: ${isVertical ? "'Noto Serif JP', 'IPA Mincho', 'MS Mincho', 'Hiragino Mincho Pro', serif" : "Georgia, 'Times New Roman', serif"};
+  line-height: 1.8;
+  margin: 0; padding: 0;
+  ${isVertical ? "writing-mode: vertical-rl; -epub-writing-mode: vertical-rl; -webkit-writing-mode: vertical-rl;" : ""}
+}
+${isVertical ? "p { margin: 0; text-indent: 0; }" : "p { margin: 0 0 0.8em 0; text-align: justify; text-indent: 1.5em; }"}
+p:first-of-type { text-indent: 0; }
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: bold;
+  page-break-after: avoid;
+  margin-top: 1.5em; margin-bottom: 0.5em;
+}
+h1 { font-size: 1.6em; }
+h2 { font-size: 1.4em; }
+h3 { font-size: 1.2em; }
+.chapter { margin: 1em 0; }`;
+    entries.push({ name: 'OEBPS/style.css', data: css });
+
+    // 4. META-INF/container.xml
+    entries.push({ name: 'META-INF/container.xml', data: `<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>` });
+
+    // 5. content.opf
+    const manifestItems = chapterFiles.map((f, i) =>
+      `    <item id="chapter${i + 1}" href="chapter-${i + 1}.xhtml" media-type="application/xhtml+xml"/>`
+    ).join('\n');
+    const spineItems = chapterFiles.map((f, i) =>
+      `    <itemref idref="chapter${i + 1}"/>`
+    ).join('\n');
+    entries.push({ name: 'OEBPS/content.opf', data: `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:identifier id="BookId">urn:uuid:${bookId}</dc:identifier>
+    <dc:title>${escapeXml(title)}</dc:title>
+    <dc:creator>${escapeXml(author)}</dc:creator>
+    <dc:language>${escapeXml(lang)}</dc:language>
+    <dc:date>${new Date().toISOString().split('T')[0]}</dc:date>
+  </metadata>
+  <manifest>
+    <item id="css" href="style.css" media-type="text/css"/>
+${manifestItems}
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+  </manifest>
+  <spine toc="ncx">
+${spineItems}
+  </spine>
+</package>` });
+
+    // 6. toc.ncx
+    const navPoints = chapters.map((content, i) => {
+      const titleText = parseChapterTitle(content);
+      return `    <navPoint id="navpoint-${i + 1}" playOrder="${i + 1}">
+      <navLabel><text>${escapeXml(titleText)}</text></navLabel>
+      <content src="chapter-${i + 1}.xhtml"/>
+    </navPoint>`;
+    }).join('\n');
+    entries.push({ name: 'OEBPS/toc.ncx', data: `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="urn:uuid:${bookId}"/>
+    <meta name="dtb:depth" content="1"/>
+    <meta name="dtb:totalPageCount" content="0"/>
+    <meta name="dtb:maxPageNumber" content="0"/>
+  </head>
+  <docTitle><text>${escapeXml(title)}</text></docTitle>
+  <navMap>
+${navPoints}
+  </navMap>
+</ncx>` });
+
+    return MiniZip.createZip(entries);
+  }
+
+  function updatePreview() {
+    const text = textInput.value;
+    const split = chapterSplitChk.checked;
+    const chapters = splitIntoChapters(text, split);
+    if (chapters.length > 1) {
+      chaptersPreview.style.display = 'block';
+      chapterListEl.innerHTML = '';
+      chapters.forEach((ch, i) => {
+        const title = parseChapterTitle(ch);
+        const li = document.createElement('li');
+        li.textContent = title || `(empty chapter ${i + 1})`;
+        chapterListEl.appendChild(li);
+      });
+    } else {
+      chaptersPreview.style.display = 'none';
+    }
+  }
+
+  function doConvert() {
+    const title        = titleInput.value.trim() || 'Untitled';
+    const author       = authorInput.value.trim() || 'Unknown';
+    const lang         = langInput.value.trim() || 'ja';
+    const text         = textInput.value;
+    const rawHtml      = rawHtmlChk.checked;
+    const writingMode  = writingModeSel.value;
+
+    if (!text.trim()) {
+      setStatus('Please enter some text.', true);
+      return;
+    }
+
+    const split = chapterSplitChk.checked;
+    const chapters = splitIntoChapters(text, split);
+
+    convertBtn.disabled = true;
+    convertBtn.textContent = '⏳ Generating EPUB...';
+    setStatus('Building EPUB...');
+
+    try {
+      const blob = buildEpub(title, author, lang, chapters, rawHtml, writingMode);
+      const safeFilename = title.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100) + '.epub';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = safeFilename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setStatus(`✅ EPUB downloaded: "${safeFilename}" (${(blob.size / 1024).toFixed(1)} KB, ${chapters.length} chapter${chapters.length > 1 ? 's' : ''})`);
+    } catch (err) {
+      setStatus('❌ Error: ' + err.message, true);
+      console.error(err);
+    } finally {
+      convertBtn.disabled = false;
+      convertBtn.textContent = '📥 Convert to EPUB';
+    }
+  }
+
+  function doReset() {
+    titleInput.value = 'My Book';
+    authorInput.value = 'Unknown';
+    langInput.value = 'ja';
+    chapterSplitChk.checked = true;
+    rawHtmlChk.checked = true;
+    writingModeSel.value = 'vertical-rl';
+    textInput.value = '';
+    setStatus('');
+    updatePreview();
+  }
+
+  convertBtn.addEventListener('click', doConvert);
+  resetBtn.addEventListener('click', doReset);
+  textInput.addEventListener('input', updatePreview);
+  chapterSplitChk.addEventListener('change', updatePreview);
+
+  updatePreview();
+  setStatus('Ready. Paste your text and click Convert to EPUB (fully offline).');
+})();
+</script>
+</body>
+</html>
