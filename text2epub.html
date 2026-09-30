@@ -110,17 +110,13 @@ Enable 'raw HTML' mode to use <ruby>漢字<rt>かんじ</rt></ruby> and other in
 
 Once upon a time, in a digital world far away, there lived a curious programmer.
 
-They wanted to create an EPUB converter that worked entirely in the browser.
+They wanted to create an EPUB converter that worked **entirely** in the browser.
 
 # The Challenge
 
-Building an EPUB file is not as hard as it seems.
+Building an EPUB file is not as hard as it *seems*.
 
-An EPUB is just a ZIP file with a specific internal structure.
-
-# The Solution
-
-Using JavaScript, we can generate all the required files:
+An EPUB is just a ZIP file with a specific internal structure:
 
 - mimetype
 - META-INF/container.xml
@@ -128,11 +124,11 @@ Using JavaScript, we can generate all the required files:
 - toc.ncx
 - Chapter XHTML files
 
-And package them together using a pure JavaScript ZIP library.
+> You can build all of it client-side, using a pure JavaScript ZIP library!
 
 # The End
 
-And so, the programmer succeeded in creating a fully client-side EPUB converter.
+And so, the programmer succeeded. `console.log('The end.')`
 
 The end. Or is it just the beginning?</textarea>
 
@@ -140,10 +136,13 @@ The end. Or is it just the beginning?</textarea>
     <input type="checkbox" id="chapterSplit" checked>
     <label for="chapterSplit">Split chapters on headings (lines starting with #, ##, ###)</label>
   </div>
-  <div class="checkbox-row">
-    <input type="checkbox" id="rawHtml" checked>
-    <label for="rawHtml">Treat text as raw HTML — preserve tags like <code>&lt;ruby&gt;</code>, <code>&lt;b&gt;</code>, etc.</label>
-  </div>
+  <label for="contentMode">Content Format</label>
+  <select id="contentMode">
+    <option value="markdown" selected>Markdown — **bold**, *italic*, - bullets, &gt; quotes, `code`, [links](...)</option>
+    <option value="plain">Plain text — headings and bullet lines (- item) are still detected</option>
+    <option value="raw">Raw HTML — pass tags like <code>&lt;ruby&gt;</code>, <code>&lt;b&gt;</code> through unchanged</option>
+  </select>
+  <div class="help">Markdown supported: **bold**, *italic*, ~~strike~~, ==highlight==, `code`, [link](url), `#` headings, bullet (-, *, +) and numbered (1.) lists, &gt; blockquotes, --- hr, ``` code fences. Use Raw HTML mode for <code>&lt;ruby&gt;</code> etc.</div>
 
   <div class="chapters-preview" id="chaptersPreview" style="display:none;">
     <h3>📑 Detected chapters:</h3>
@@ -329,7 +328,7 @@ const MiniZip = (() => {
   const langInput        = document.getElementById('lang');
   const textInput        = document.getElementById('textInput');
   const chapterSplitChk  = document.getElementById('chapterSplit');
-  const rawHtmlChk       = document.getElementById('rawHtml');
+  const contentModeSel   = document.getElementById('contentMode');
   const writingModeSel   = document.getElementById('writingMode');
   const convertBtn       = document.getElementById('convertBtn');
   const statusEl         = document.getElementById('status');
@@ -399,50 +398,115 @@ const MiniZip = (() => {
     return 'Untitled';
   }
 
+  /** Inline Markdown. Input must already be HTML-escaped. */
+  function mdInline(s) {
+    // Protect code spans from the other inline rules
+    const codes = [];
+    s = s.replace(/`([^`\n]+)`/g, (m, c) => {
+      codes.push('<code>' + c + '</code>');
+      return '\u0000' + (codes.length - 1) + '\u0000';
+    });
+    s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/__([^_\n]+)__/g, '<strong>$1</strong>');
+    s = s.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
+    s = s.replace(/==([^=\n]+)==/g, '<span class="hl">$1</span>');
+    s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+    s = s.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, '<a href="$2">$1</a>');
+    s = s.replace(/\u0000(\d+)\u0000/g, (m, i) => codes[+i]);
+    return s;
+  }
+
   /**
-   * Convert a block of plain text into XHTML paragraphs.
-   * If rawHtml is true, HTML tags like <ruby>, <rt>, <b>, <i> are
-   * passed through untouched. Otherwise everything is escaped.
+   * Convert a chapter's text into XHTML (mode: 'markdown' | 'plain' | 'raw').
+   * Block structure — headings, bullet/numbered lists, blockquotes,
+   * horizontal rules and fenced code blocks — is detected in every mode.
+   * Inline Markdown is applied in 'markdown' mode only.
+   * In 'raw' mode, HTML tags like <ruby>, <rt>, <b> pass through untouched.
    */
-  function textToHtmlParagraphs(text, rawHtml) {
-    // Decide which text-escape function to use
-    const esc = rawHtml
+  function textToHtml(text, mode) {
+    const esc = mode === 'raw'
       ? function(t) {
-          // Only escape ampersands that are NOT already part of a valid HTML entity
+          // Only escape ampersands that are NOT already part of a valid entity
           return t.replace(/&(?!(?:amp|lt|gt|quot|apos|#[0-9]+|#x[0-9a-fA-F]+);)/g, '&amp;');
         }
       : escapeHtml;
+    const inline = (t) => (mode === 'markdown' ? mdInline(esc(t)) : esc(t));
 
-    const blocks = text.split(/\n\s*\n/);
-    const parts = [];
-    for (const block of blocks) {
-      const trimmed = block.trim();
-      if (!trimmed) continue;
-      const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)/m);
-      if (headingMatch) {
-        const level = headingMatch[1].length;
-        const headingText = headingMatch[2].trim();
-        const rest = trimmed.replace(/^#{1,6}\s+.+(\n|$)/, '').trim();
-        parts.push(`<h${level}>${esc(headingText)}</h${level}>`);
-        if (rest) {
-          for (const p of rest.split(/\n+/)) {
-            const pt = p.trim();
-            if (pt) parts.push(`<p>${esc(pt)}</p>`);
-          }
-        }
-      } else {
-        const lines = trimmed.split('\n').map(l => l.trim()).filter(l => l);
-        if (lines.length === 1) {
-          parts.push(`<p>${esc(lines[0])}</p>`);
-        } else {
-          parts.push(`<p>${lines.map(l => esc(l)).join('<br/>\n')}</p>`);
-        }
+    const out = [];
+    let para = [];
+    let list = null; // { type: 'ul' | 'ol', items: [] }
+    let quote = [];
+    let codeBuf = null, fence = null;
+
+    function flushPara() {
+      if (para.length) { out.push('<p>' + para.map(inline).join('<br/>\n') + '</p>'); para = []; }
+    }
+    function flushList() {
+      if (list) {
+        out.push('<' + list.type + '>\n'
+          + list.items.map(it => '  <li>' + inline(it) + '</li>').join('\n')
+          + '\n</' + list.type + '>');
+        list = null;
       }
     }
-    return parts.join('\n');
+    function flushQuote() {
+      if (quote.length) { out.push('<blockquote>' + quote.map(inline).join('<br/>') + '</blockquote>'); quote = []; }
+    }
+    function flushAll() { flushPara(); flushList(); flushQuote(); }
+
+    for (const rawLine of text.split('\n')) {
+      const line = rawLine.replace(/\s+$/, '');
+      const trimmed = line.trim();
+
+      // Inside a fenced code block: emit raw lines until the closing fence
+      if (codeBuf !== null) {
+        if (trimmed === fence) {
+          out.push('<pre><code>' + codeBuf.map(esc).join('\n') + '</code></pre>');
+          codeBuf = null; fence = null;
+        } else {
+          codeBuf.push(rawLine);
+        }
+        continue;
+      }
+
+      if (/^(```|~~~)/.test(trimmed) && trimmed.length <= 40) { flushAll(); codeBuf = []; fence = trimmed; continue; }
+
+      const h = /^(#{1,6})\s+(.*)$/.exec(line);
+      if (h) { flushAll(); out.push('<h' + h[1].length + '>' + inline(h[2].trim()) + '</h' + h[1].length + '>'); continue; }
+
+      if (/^(?:-{3,}|_{3,})$/.test(trimmed)) { flushAll(); out.push('<hr/>'); continue; }
+
+      const bullet = /^\s*[-+*]\s+(.*)$/.exec(line);
+      if (bullet) {
+        flushPara(); flushQuote();
+        if (!list || list.type !== 'ul') { flushList(); list = { type: 'ul', items: [] }; }
+        list.items.push(bullet[1]);
+        continue;
+      }
+
+      const num = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+      if (num) {
+        flushPara(); flushQuote();
+        if (!list || list.type !== 'ol') { flushList(); list = { type: 'ol', items: [] }; }
+        list.items.push(num[1]);
+        continue;
+      }
+
+      const bq = /^>\s?(.*)$/.exec(line);
+      if (bq) { flushPara(); flushList(); quote.push(bq[1]); continue; }
+
+      if (trimmed === '') { flushAll(); continue; }
+
+      flushList(); flushQuote();
+      para.push(trimmed);
+    }
+
+    if (codeBuf !== null) out.push('<pre><code>' + codeBuf.map(esc).join('\n') + '</code></pre>');
+    flushAll();
+    return out.join('\n');
   }
 
-  function buildEpub(title, author, lang, chapters, rawHtml, writingMode) {
+  function buildEpub(title, author, lang, chapters, mode, writingMode) {
     const bookId = uuid();
     const chapterFiles = [];
     const entries = [];
@@ -455,7 +519,7 @@ const MiniZip = (() => {
       const fileName = `OEBPS/chapter-${idx + 1}.xhtml`;
       chapterFiles.push(fileName);
       const titleFromContent = parseChapterTitle(content);
-      const bodyHtml = textToHtmlParagraphs(content, rawHtml);
+      const bodyHtml = textToHtml(content, mode);
 
       const xhtml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
@@ -493,6 +557,15 @@ h1, h2, h3, h4, h5, h6 {
 h1 { font-size: 1.6em; }
 h2 { font-size: 1.4em; }
 h3 { font-size: 1.2em; }
+ul, ol { margin: 0 0 0.8em 0; padding-left: 1.6em; }
+li { margin: 0 0 0.3em 0; }
+blockquote { margin: 0 0 0.8em 1em; padding-left: 0.8em; border-left: 3px solid #bbb; color: #555; }
+hr { border: none; border-top: 1px solid #999; margin: 1.5em auto; width: 40%; }
+pre { white-space: pre-wrap; background: #f4f4f4; padding: 0.5em 0.8em; }
+code { font-family: 'Courier New', monospace; font-size: 0.9em; background: #f0f0f0; }
+strong { font-weight: bold; }
+em { font-style: italic; }
+.hl { background: #fff3a3; }
 .chapter { margin: 1em 0; }`;
     entries.push({ name: 'OEBPS/style.css', data: css });
 
@@ -579,7 +652,7 @@ ${navPoints}
     const author       = authorInput.value.trim() || 'Unknown';
     const lang         = langInput.value.trim() || 'ja';
     const text         = textInput.value;
-    const rawHtml      = rawHtmlChk.checked;
+    const mode         = contentModeSel.value;
     const writingMode  = writingModeSel.value;
 
     if (!text.trim()) {
@@ -595,7 +668,7 @@ ${navPoints}
     setStatus('Building EPUB...');
 
     try {
-      const blob = buildEpub(title, author, lang, chapters, rawHtml, writingMode);
+      const blob = buildEpub(title, author, lang, chapters, mode, writingMode);
       const safeFilename = title.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100) + '.epub';
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -620,7 +693,7 @@ ${navPoints}
     authorInput.value = 'Unknown';
     langInput.value = 'ja';
     chapterSplitChk.checked = true;
-    rawHtmlChk.checked = true;
+    contentModeSel.value = 'markdown';
     writingModeSel.value = 'vertical-rl';
     textInput.value = '';
     setStatus('');
