@@ -325,6 +325,12 @@
     border-top: 1px solid var(--border);
   }
 
+  #preview .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 0;
+  }
+
   /* --- Marp slide mode --- */
   #marp-view {
     flex: 1;
@@ -573,6 +579,38 @@
   ].join('\n');
 
   marked.use(markedKatex({ throwOnError: false }));
+
+  /* marked-katex-extension only sees display math when the `$$` delimiters sit on
+     their own lines, so a `$$...$$` block wrapped across lines matches neither its
+     inline nor its block rule and leaks out as raw text. Registered after it so
+     marked gives this tokenizer priority. */
+  const displayMathRule = /^[ \t]{0,3}\$\$([\s\S]+?)\$\$[ \t]*(?:\n+|$)/;
+  const displayMathStart = /(?:^|\n)[ \t]{0,3}\$\$[\s\S]+?\$\$[ \t]*(?:\n|$)/;
+
+  marked.use({
+    extensions: [{
+      name: 'displayMath',
+      level: 'block',
+      start(src) {
+        const m = displayMathStart.exec(src);
+        if (!m) return;
+        return m.index + (m[0][0] === '\n' ? 1 : 0);
+      },
+      tokenizer(src) {
+        const m = displayMathRule.exec(src);
+        if (!m) return;
+        return { type: 'displayMath', raw: m[0], text: m[1].trim() };
+      },
+      renderer(token) {
+        try {
+          return katex.renderToString(token.text, { displayMode: true, throwOnError: false });
+        } catch (e) {
+          return '<pre><code>' + token.text.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</code></pre>';
+        }
+      },
+    }],
+  });
+
   marked.use(markedHighlight.markedHighlight({
     langPrefix: 'hljs language-',
     highlight(code, lang) {
@@ -617,6 +655,9 @@
     const raw = marked.parse(editor.value);
     preview.innerHTML = DOMPurify.sanitize(raw, {
       USE_PROFILES: { html: true, svg: true, mathMl: true },
+      /* KaTeX wraps its MathML in these; without them the sanitizer drops the
+         elements but keeps the TeX source as a loose text node inside <math>. */
+      ADD_TAGS: ['semantics', 'annotation'],
     });
   }
 
