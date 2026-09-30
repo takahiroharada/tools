@@ -90,7 +90,7 @@
         <option value="horizontal-tb">横書き (Horizontal)</option>
       </select>
     </div>
-
+  </div>
   <label for="textInput">Text Content</label>
   <textarea id="textInput" placeholder="Paste your text here...
 
@@ -376,7 +376,7 @@ const MiniZip = (() => {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (splitOnHeadings && /^#{1,6}\s/.test(line)) { flush(); currentLines.push(line); }
+      if (splitOnHeadings && /^#{1,2}\s/.test(line)) { flush(); currentLines.push(line); }
       else { currentLines.push(line); }
     }
     flush();
